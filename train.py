@@ -34,7 +34,7 @@ def validate(model, val_items, data_dir, patch_size, overlap, device):
     model.eval()
     dices = []
     with torch.no_grad():
-        for item in val_items:
+        for item in tqdm(val_items, desc="Validation", leave=False):
             image_path = os.path.join(data_dir, item["image"])
             label_path = os.path.join(data_dir, item["label"])
             image, _, _ = load_nifti(image_path)
@@ -57,10 +57,16 @@ def main():
     parser.add_argument("--overlap", type=float, default=0.5)
     parser.add_argument("--out_dir", default="outputs")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--threads", type=int, default=0)
     args = parser.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if device.type == "cpu":
+        # Use CPU threads efficiently (0 = use all logical cores).
+        threads = args.threads if args.threads > 0 else (os.cpu_count() or 1)
+        torch.set_num_threads(threads)
+        torch.set_num_interop_threads(max(1, threads // 2))
 
     data = load_dataset_json(args.data_dir)
     train_items, val_items = split_train_val(data["training"], args.val_ratio, args.seed)
