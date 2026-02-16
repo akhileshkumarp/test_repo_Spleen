@@ -39,8 +39,11 @@ def validate(model, val_items, data_dir, patch_size, overlap, device):
             label_path = os.path.join(data_dir, item["label"])
             image, _, _ = load_nifti(image_path)
             label, _, _ = load_nifti(label_path)
+            original_shape = label.shape
             image = normalize_ct(image)
             pred = sliding_window_inference(image, model, patch_size, overlap, device)
+            # Crop pred back to original label shape
+            pred = pred[:original_shape[0], :original_shape[1], :original_shape[2]]
             dices.append(compute_dice(pred > 0, label > 0))
     return float(np.mean(dices)) if dices else 0.0
 
